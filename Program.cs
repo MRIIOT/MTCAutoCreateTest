@@ -3,17 +3,17 @@ using MTConnect.Devices;
 
 var _paths = new List<string>()
 {
-    "Device[Name=device1]/Availability",
-    "Device[Name=device1]/Controller[Name=Test]/Path/Execution",
-    "Device[Name=device1]/Controller[Name=Test]/Path/System",
-    "Device[Name=device1]/Axes/Linear[Name=X]/Position[SubType=Actual]"
+    "Device[Name=device1]/Availability[Category=Event]",
+    "Device[Name=device1]/Controller/Path/Execution[Category=Event]",
+    "Device[Name=device1]/Controller/Path/System[Category=Condition]",
+    "Device[Name=device1]/Axes/Linear[Name=X]/Position[Category=Sample,SubType=Actual]"
 };
 
 var _devices = new Dictionary<string, Device>();
 
 foreach (var path in _paths)
 {
-    Console.WriteLine($"Processing Path: {path}");
+    Console.WriteLine($"\r\nProcessing Path: {path}");
     
     var parts = new Parts(path);
 
@@ -34,11 +34,15 @@ foreach (var path in _paths)
             {
                 device = new Device();
                 _devices[deviceName] = device;
+                
+                part.Attributes.TryAdd("Id", Guid.NewGuid().ToString());
+                part.Attributes.TryAdd("Name", string.Empty);
+                part.Attributes.TryAdd("Type", part.Name);
+                
                 foreach (var attribute in part.Attributes)
                 {
                     Console.WriteLine($"\t\tProcessing Attribute: {attribute.Key}={attribute.Value}");
-                    var property = device.GetType().GetProperty(attribute.Key);
-                    property.SetValue(device, attribute.Value);
+                    SetPropertyFromAttribute(device, attribute.Key, attribute.Value);
                 }
             }
             nextComponent = device;
@@ -49,11 +53,15 @@ foreach (var path in _paths)
             if (dataItem is null)
             {
                 dataItem = DataItem.Create($"{part.Name}DataItem");
+                
+                part.Attributes.TryAdd("Id", Guid.NewGuid().ToString());
+                part.Attributes.TryAdd("Name", string.Empty);
+                part.Attributes.TryAdd("Type", part.Name);
+                
                 foreach (var attribute in part.Attributes)
                 {
                     Console.WriteLine($"\t\tProcessing Attribute: {attribute.Key}={attribute.Value}");
-                    var property = dataItem.GetType().GetProperty(attribute.Key);
-                    property.SetValue(dataItem, attribute.Value);
+                    SetPropertyFromAttribute(dataItem, attribute.Key, attribute.Value);
                 }
                 
                 try
@@ -74,11 +82,14 @@ foreach (var path in _paths)
                 childComponent = Component.Create($"{part.Name}Component");
             }
             
+            part.Attributes.TryAdd("Id", Guid.NewGuid().ToString());
+            part.Attributes.TryAdd("Name", string.Empty);
+            part.Attributes.TryAdd("Type", part.Name);
+            
             foreach (var attribute in part.Attributes)
             {
                 Console.WriteLine($"\t\tProcessing Attribute: {attribute.Key}={attribute.Value}");
-                var property = childComponent.GetType().GetProperty(attribute.Key);
-                property.SetValue(childComponent, attribute.Value);
+                SetPropertyFromAttribute(childComponent, attribute.Key, attribute.Value);
             }
 
             try
@@ -109,6 +120,21 @@ foreach (var path in _paths)
 
 
 Console.ReadKey();
+
+bool SetPropertyFromAttribute(object obj, string propertyName, object attributeValue)
+{
+    var property = obj.GetType().GetProperty(propertyName);
+    if (property.PropertyType == typeof(DataItemCategory))
+    {
+        property.SetValue(obj, Enum.Parse(typeof(DataItemCategory), attributeValue.ToString().ToUpper()));
+    }
+    else
+    {
+        property.SetValue(obj, attributeValue);
+    }
+
+    return true;
+}
 
 
 public class Part
